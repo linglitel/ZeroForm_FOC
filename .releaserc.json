@@ -36,9 +36,12 @@
     }],
     ["@semantic-release/github", {
       "assets": [
-        {"path": "release/ZeroForm_FOC.elf", "label": "ZeroForm_FOC.elf"},
-        {"path": "release/ZeroForm_FOC.hex", "label": "ZeroForm_FOC.hex"},
-        {"path": "release/ZeroForm_FOC.bin", "label": "ZeroForm_FOC.bin"}
+        {"path": "release/ZeroForm_FOC_Release.elf", "label": "ZeroForm_FOC_Release.elf"},
+        {"path": "release/ZeroForm_FOC_Release.hex", "label": "ZeroForm_FOC_Release.hex"},
+        {"path": "release/ZeroForm_FOC_Release.bin", "label": "ZeroForm_FOC_Release.bin"},
+        {"path": "release/ZeroForm_FOC_Debug.elf", "label": "ZeroForm_FOC_Debug.elf"},
+        {"path": "release/ZeroForm_FOC_Debug.hex", "label": "ZeroForm_FOC_Debug.hex"},
+        {"path": "release/ZeroForm_FOC_Debug.bin", "label": "ZeroForm_FOC_Debug.bin"}
       ]
     }],
     ["@semantic-release/git", {
