@@ -1,0 +1,25 @@
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_main.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_foc.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_pid.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_current.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_encoder.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_utils.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_motor.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_cmd.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_can.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_cordic.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_main.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_foc.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_pid.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_current.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_encoder.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_utils.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_motor.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_cmd.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_can.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_cordic.c
+)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc
+)
