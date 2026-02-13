@@ -97,12 +97,22 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         while (*param == ' ') param++;
 
         if (*param == 'V') {
-            FOC.mode = Velocity;
+            // 切换到速度模式前，重置相关PID状态
+            FOC.pid_velocity.integral = 0.0f;
+            FOC.pid_velocity.last_error = 0.0f;
+            FOC.pid_iq.integral = 0.0f;
             FOC.velocity_target = 0.0f;
+            FOC.Iq_target = 0.0f;
+            FOC.mode = Velocity;
             CMD_SendResponse("OK: Mode = Velocity\r\n");
         } else if (*param == 'P') {
-            FOC.mode = Position;
+            // 切换到位置模式前，重置相关PID状态
+            FOC.pid_position.integral = 0.0f;
+            FOC.pid_position.last_error = 0.0f;
+            FOC.pid_iq.integral = 0.0f;
             FOC.position_target = FOC.mechanical_angle * (float) FOC.direction;
+            FOC.Iq_target = 0.0f;
+            FOC.mode = Position;
             CMD_SendResponse("OK: Mode = Position\r\n");
         } else if (*param == 'I') {
             FOC.mode = IDLE;
@@ -146,7 +156,7 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             FOC.position_target = angle_rad;
             snprintf(response, sizeof(response), "OK: Absolute Position = %.2f deg\r\n", RAD_TO_DEG(angle_rad));
         } else if (pos_type == 'R') {
-            FOC.position_target = FOC.mechanical_angle * FOC.direction + angle_rad;
+            FOC.position_target = FOC.mechanical_angle * (float) FOC.direction + angle_rad;
             snprintf(response, sizeof(response), "OK: Relative Position += %.2f deg\r\n", RAD_TO_DEG(angle_rad));
         } else {
             CMD_SendResponse("ERR: Use POS A <angle> or POS R <angle>\r\n");

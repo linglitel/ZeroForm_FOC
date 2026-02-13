@@ -322,15 +322,28 @@ static void CAN_HandleSetMode(uint8_t *data, uint32_t dlc) {
             FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
             break;
         case CAN_MODE_CURRENT:
+            // 重置电流环PID状态
+            FOC.pid_iq.integral = 0.0f;
+            FOC.Iq_target = 0.0f;
             FOC.mode = Current;
             break;
         case CAN_MODE_VELOCITY:
-            FOC.mode = Velocity;
+            // 重置速度环和电流环PID状态
+            FOC.pid_velocity.integral = 0.0f;
+            FOC.pid_velocity.last_error = 0.0f;
+            FOC.pid_iq.integral = 0.0f;
             FOC.velocity_target = 0.0f;
+            FOC.Iq_target = 0.0f;
+            FOC.mode = Velocity;
             break;
         case CAN_MODE_POSITION:
-            FOC.mode = Position;
+            // 重置位置环和电流环PID状态
+            FOC.pid_position.integral = 0.0f;
+            FOC.pid_position.last_error = 0.0f;
+            FOC.pid_iq.integral = 0.0f;
             FOC.position_target = FOC.mechanical_angle * (float) FOC.direction;
+            FOC.Iq_target = 0.0f;
+            FOC.mode = Position;
             break;
         default:
             CAN_SendAck(CAN_CMD_SET_MODE, CAN_ERR_INVALID_PARAM, mode_data->mode, 0);

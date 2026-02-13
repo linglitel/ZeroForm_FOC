@@ -15,6 +15,12 @@ void DWT_Init(void) {
     cpu_freq_mhz = SystemCoreClock / 1000000;
 }
 
+void DWT_Delay(uint32_t us) {
+    uint32_t start = DWT->CYCCNT;
+    uint32_t cycles = us * (SystemCoreClock / 1000000U);
+
+    while ((DWT->CYCCNT - start) < cycles);
+}
 
 float _normalizeAngle(float angle) {
     float a = fmodf(angle, 2.0f * (float) M_PI);

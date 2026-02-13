@@ -46,12 +46,13 @@ void App_Init(void) {
     HAL_GPIO_WritePin(MOTOR_EN_GPIO_Port, MOTOR_EN_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 
-    Current_Init();
-    Encoder_Init();
-
+    // 必须先设置电机参数，再初始化编码器和加载校准数据
     FOC.direction = -1;
     FOC.pairs = 11;
     FOC.Vbus = 12;
+
+    Current_Init();
+    Encoder_Init();
 
     HAL_TIM_Base_Start(&htim1);
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -82,16 +83,6 @@ void App_Init(void) {
     DWT_Init();
     CORDIC_Init();
 
-    PID_Init(&FOC.pid_id, 0, 0, 0, 1.0f / 10000.0f, 0, 0);
-    FOC.Id = 0;
-    PID_Init(&FOC.pid_iq, 2.5f, 0.45f, 0.0f, 1.0f / 10000.0f, 16.0f, 6.0f);
-    PID_Init(&FOC.pid_velocity, 5.0f, 0.0f, 0.0f, 1.0f / 5000.0f, 30.0f, 10.0f);
-    PID_Init(&FOC.pid_position, 5.0f, 0.0f, 0.0f, 1.0f / 5000.0f, 50.0f, 20.0f);
-    FOC.mode = IDLE;
-
-    Encoder_Update();
-    FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
-
     // 检查Flash中是否有有效的电零角校准数据
     bool flash_valid = Flash_Init();
 
@@ -99,6 +90,8 @@ void App_Init(void) {
         // 有有效校准数据，直接加载
         FOC.electrical_angle_offset = Flash_GetElectricalOffset();
         printf("Loaded calibration from Flash: offset = %.4f rad\r\n", FOC.electrical_angle_offset);
+        // 加载校准数据后，需要更新一次编码器以同步电角度
+        Encoder_Update();
     } else {
         // 首次上电或数据无效，执行电零角校准
         printf("No valid calibration found, starting calibration...\r\n");
@@ -113,6 +106,15 @@ void App_Init(void) {
             printf("Failed to save calibration!\r\n");
         }
     }
+
+    PID_Init(&FOC.pid_id, 0, 0, 0, 1.0f / 10000.0f, 0, 0);
+    FOC.Id = 0;
+    PID_Init(&FOC.pid_iq, 2.5f, 0.45f, 0.0f, 1.0f / 10000.0f, 16.0f, 6.0f);
+    PID_Init(&FOC.pid_velocity, 0.1f, 0.01f, 0.0f, 1.0f / 5000.0f, 30.0f, 10.0f);
+    PID_Init(&FOC.pid_position, 5.0f, 0.0f, 0.1f, 1.0f / 5000.0f, 50.0f, 20.0f);
+    FOC.mode = IDLE;
+    Encoder_Update();
+    FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
 
     CAN_Init(&hfdcan1);
     CAN_Start();

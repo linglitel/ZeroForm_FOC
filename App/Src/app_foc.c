@@ -62,15 +62,25 @@ void FOC_AlignSensor(float vd) {
     __disable_irq();
     float angle_sum = 0.0f;
     uint8_t times = 5;
+    
+    // 先读取一次编码器，初始化mechanical_angle_previous
+    Encoder_Update();
+    
     FOC_SetPhaseVoltage(vd, 0, 0);
-    HAL_Delay(1000);
+    DWT_Delay(1000000);  // 1秒，等待电机稳定到零位
+    
     for (int i = 0; i < times; i++) {
         Encoder_Update();
         angle_sum += (float) FOC.direction * FOC.mechanical_angle * (float) FOC.pairs;
-        HAL_Delay(10);
+        DWT_Delay(10000);  // 10ms
     }
     FOC.electrical_angle_offset = _normalizeAngle(angle_sum / (float) times);
     FOC_SetPhaseVoltage(0, 0, 0);
+    
+    // 校准完成后，初始化mechanical_angle_previous为当前值
+    // 这样下次Encoder_Update时速度计算不会出现跳变
+    Encoder_Update();
+    
     __enable_irq();
 }
 
@@ -87,7 +97,7 @@ void FOC_Current_Loop(void) {
     FOC.Iq = alpha * FOC.Iq + (1.0f - alpha) * FOC.Iq_prev;
     FOC.Iq_prev = FOC.Iq;
     FOC.Id_target = 0.0f;
-    FOC.pid_iq.target = FOC.Iq;
+    FOC.pid_iq.target = FOC.Iq_target;
     FOC.pid_id.target = FOC.Id_target;
     FOC.Vd = PID_Update(&FOC.pid_id, FOC.Id);
     FOC.Vq = PID_Update(&FOC.pid_iq, FOC.Iq);
@@ -95,14 +105,14 @@ void FOC_Current_Loop(void) {
 }
 
 void FOC_Velocity_Loop(void) {
+    __disable_irq();
     float vel = FOC.mechanical_velocity;
+    __enable_irq();
     FOC.pid_velocity.target = FOC.velocity_target;
     float target_current_raw = PID_Update(&FOC.pid_velocity, vel);
-
-    // 添加电流前馈
-    float target_current = target_current_raw + FOC.current_ff;
-
-    FOC.Iq_target = target_current;
+    __disable_irq();
+    FOC.Iq_target = target_current_raw;
+    __enable_irq();
 }
 
 void FOC_Position_Loop(void) {
@@ -115,13 +125,29 @@ void FOC_Position_Loop(void) {
     while (error > 3.14159265f) error -= 6.28318530f;
     while (error < -3.14159265f) error += 6.28318530f;
 
-    // Use normalized error to compute equivalent target
-    FOC.pid_position.target = pos + error;
-    float target_current_raw = PID_Update(&FOC.pid_position, pos);
-
-    // 添加速度前馈
-    float target_current = target_current_raw + FOC.Kff_velocity * FOC.velocity_ff;
-
+    // 直接使用误差计算PID输出，而不是修改target
+    // 这样可以避免target和feedback都在变化导致的问题
+    float target_current = FOC.pid_position.Kp * error 
+                         + FOC.pid_position.Ki * FOC.pid_position.integral
+                         + FOC.pid_position.Kd * (error - FOC.pid_position.last_error) / FOC.pid_position.dt;
+    
+    // 更新积分项
+    FOC.pid_position.integral += error * FOC.pid_position.dt;
+    if (FOC.pid_position.integral > FOC.pid_position.integral_limit) 
+        FOC.pid_position.integral = FOC.pid_position.integral_limit;
+    if (FOC.pid_position.integral < -FOC.pid_position.integral_limit) 
+        FOC.pid_position.integral = -FOC.pid_position.integral_limit;
+    
+    // 限制输出
+    if (target_current > FOC.pid_position.output_limit) 
+        target_current = FOC.pid_position.output_limit;
+    if (target_current < -FOC.pid_position.output_limit) 
+        target_current = -FOC.pid_position.output_limit;
+    
+    FOC.pid_position.last_error = error;
+    FOC.pid_position.error = error;
+    FOC.pid_position.output = target_current;
+    
     FOC.Iq_target = target_current;
 }
 
@@ -133,6 +159,10 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc) {
             FOC.pid_iq.error = 0.0f;
             FOC.pid_iq.integral = 0.0f;
             FOC.pid_iq.output = 0.0f;
+            FOC.pid_velocity.integral = 0.0f;
+            FOC.pid_velocity.last_error = 0.0f;
+            FOC.pid_position.integral = 0.0f;
+            FOC.pid_position.last_error = 0.0f;
             FOC.Iq_target = 0.0f;
             FOC.Iq = 0.0f;
             FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
