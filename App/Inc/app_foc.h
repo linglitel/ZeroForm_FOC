@@ -16,6 +16,7 @@
 
 /* 前向声明，避免循环依赖 */
 void Encoder_Update(void);
+
 void Current_Update(void);
 
 /**
@@ -28,10 +29,10 @@ void Current_Update(void);
  * @brief FOC控制模式枚举
  */
 typedef enum {
-    IDLE,                   /**< 空闲模式，电机自由 */
-    Current,                /**< 电流/力矩模式 (不推荐直接使用) */
-    Velocity,               /**< 速度模式 */
-    Position,               /**< 位置模式 */
+    IDLE, /**< 空闲模式，电机自由 */
+    Current, /**< 电流/力矩模式 */
+    Velocity, /**< 速度模式 */
+    Position, /**< 位置模式 */
 } FOC_Mode;
 
 /**
@@ -39,56 +40,56 @@ typedef enum {
  * @details 包含所有FOC控制所需的状态变量和参数
  */
 typedef struct {
-    FOC_Mode mode;                      /**< 当前控制模式 */
+    FOC_Mode mode; /**< 当前控制模式 */
 
-    int8_t direction;                   /**< 电机方向 (MT6835编码器应设为-1) */
-    uint8_t pairs;                      /**< 电机极对数 */
+    int8_t direction; /**< 电机方向 */
+    uint8_t pairs; /**< 电机极对数 */
 
-    float mechanical_angle;             /**< 当前机械角度 (0 ~ 2π rad) */
-    float electrical_angle;             /**< 当前电角度 (0 ~ 2π rad) */
-    float electrical_angle_offset;      /**< 电零角偏移 (校准值) */
+    float mechanical_angle; /**< 当前机械角度 (0 ~ 2π rad) */
+    float electrical_angle; /**< 当前电角度 (0 ~ 2π rad) */
+    float electrical_angle_offset; /**< 电零角偏移 (校准值) */
 
-    float mechanical_velocity;          /**< 当前机械速度 (rad/s) */
-    float electronic_velocity;          /**< 当前电速度 (rad/s) */
+    float mechanical_velocity; /**< 当前机械速度 (rad/s) */
+    float electronic_velocity; /**< 当前电速度 (rad/s) */
 
     uint32_t mechanical_angle_previous; /**< 上一次机械角度 (原始值) */
     float mechanical_velocity_previous; /**< 上一次机械速度 */
     float electronic_velocity_previous; /**< 上一次电速度 */
 
     /* 控制环内部状态变量 */
-    float Iq_prev;                      /**< 上一次Iq值 (用于低通滤波) */
-    uint8_t vel_loop_counter;           /**< 速度环分频计数器 */
+    float Iq_prev; /**< 上一次Iq值 (用于低通滤波) */
+    uint8_t vel_loop_counter; /**< 速度环分频计数器 */
 
-    float Vbus;                         /**< 母线电压 (V) */
-    float Vq;                           /**< q轴电压 (V) */
-    float Vd;                           /**< d轴电压 (V) */
+    float Vbus; /**< 母线电压 (V) */
+    float Vq; /**< q轴电压 (V) */
+    float Vd; /**< d轴电压 (V) */
 
-    float Ud;                           /**< d轴调制比 */
-    float Uq;                           /**< q轴调制比 */
+    float Ud; /**< d轴调制比 */
+    float Uq; /**< q轴调制比 */
 
-    float Id;                           /**< d轴电流 (A) */
-    float Iq;                           /**< q轴电流 (A) */
+    float Id; /**< d轴电流 (A) */
+    float Iq; /**< q轴电流 (A) */
 
-    float Ia;                           /**< A相电流 (A) */
-    float Ib;                           /**< B相电流 (A) */
-    float Ic;                           /**< C相电流 (A) */
+    float Ia; /**< A相电流 (A) */
+    float Ib; /**< B相电流 (A) */
+    float Ic; /**< C相电流 (A) */
 
-    float Iq_target;                    /**< Iq目标值 (A) */
-    float Id_target;                    /**< Id目标值 (A) */
+    float Iq_target; /**< Iq目标值 (A) */
+    float Id_target; /**< Id目标值 (A) */
 
-    float velocity_target;              /**< 速度目标值 (rad/s) */
-    float position_target;              /**< 位置目标值 (rad) */
+    float velocity_target; /**< 速度目标值 (rad/s) */
+    float position_target; /**< 位置目标值 (rad) */
 
     /* 前馈控制参数 */
-    float velocity_ff;                  /**< 速度前馈值 (rad/s) */
-    float current_ff;                   /**< 电流前馈值 (A) */
-    float Kff_velocity;                 /**< 速度前馈增益 */
+    float velocity_ff; /**< 速度前馈值 (rad/s) */
+    float current_ff; /**< 电流前馈值 (A) */
+    float Kff_velocity; /**< 速度前馈增益 */
 
     /* PID控制器 */
-    PID_Controller pid_id;              /**< Id电流环PID */
-    PID_Controller pid_iq;              /**< Iq电流环PID */
-    PID_Controller pid_velocity;        /**< 速度环PID */
-    PID_Controller pid_position;        /**< 位置环PID */
+    PID_Controller pid_id; /**< Id电流环PID */
+    PID_Controller pid_iq; /**< Iq电流环PID */
+    PID_Controller pid_velocity; /**< 速度环PID */
+    PID_Controller pid_position; /**< 位置环PID */
 } FOC_t;
 
 /** @brief FOC控制器全局实例 */

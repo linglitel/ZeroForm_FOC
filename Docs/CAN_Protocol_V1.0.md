@@ -1,4 +1,4 @@
-# ZeroForm FOC CAN通信协议规范 V1.0
+# ZeroForm FOC CAN通信协议规范 V1.1
 
 ## 1. 概述
 
@@ -56,7 +56,6 @@ CAN_ID = (CMD << 7) | NODE_ID
 | CMD_STATUS_RESP | 0x5 | 0x280-0x2FF | 节点→主机 | 状态响应 |
 | CMD_EMERGENCY | 0x6 | 0x300-0x37F | 双向 | 紧急停止 |
 | CMD_CONFIG | 0x7 | 0x380-0x3FF | 主机→节点 | 配置参数 |
-| CMD_CALIBRATE | 0x8 | 0x400-0x47F | 主机→节点 | 校准命令 |
 | CMD_ACK | 0x9 | 0x480-0x4FF | 节点→主机 | 命令确认/错误响应 |
 | CMD_BROADCAST | 0xF | 0x780-0x7FF | 主机→所有 | 广播命令 |
 
@@ -98,10 +97,7 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 0 | RUNNING | 电机运行中 |
 | 1 | FAULT | 存在故障 |
 | 2 | CALIBRATED | 已校准 |
-| 3 | TARGET_REACHED | 目标已到达 |
-| 4 | OVERTEMP | 过温警告 |
-| 5 | OVERCURRENT | 过流警告 |
-| 6-7 | reserved | 保留 |
+| 3-7 | reserved | 保留 |
 
 ---
 
@@ -198,7 +194,6 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 2 | PID_VELOCITY | 速度环PID参数 |
 | 3 | PID_POSITION | 位置环PID参数 |
 | 4 | CONFIG | 配置参数 |
-| 5 | VERSION | 固件版本信息 |
 
 ---
 
@@ -227,21 +222,8 @@ CAN_ID = (CMD << 7) | NODE_ID
 |------|--------|------|------|
 | 0 | response_type | uint8 | 响应类型 = 4 |
 | 1 | node_id | uint8 | 当前节点ID |
-| 2 | motor_pairs | uint8 | 电机极对数 |
-| 3 | motor_direction | int8 | 电机方向 (+1/-1) |
-| 4-7 | vbus_nominal | float32 | 标称母线电压 |
-| 8-11 | heartbeat_period | uint32 | 心跳周期 (ms) |
-| 12-15 | encoder_offset | float32 | 编码器偏移 |
-
-#### 3.6.4 版本信息响应 (request_type=5)
-| Byte | 字段名 | 类型 | 描述 |
-|------|--------|------|------|
-| 0 | response_type | uint8 | 响应类型 = 5 |
-| 1 | version_major | uint8 | 主版本号 |
-| 2 | version_minor | uint8 | 次版本号 |
-| 3 | version_patch | uint8 | 补丁版本号 |
-| 4-19 | build_date | char[16] | 编译日期 |
-| 20-35 | device_name | char[16] | 设备名称 |
+| 2-5 | heartbeat_period | uint32 | 心跳周期 (ms) |
+| 6-9 | encoder_offset | float32 | 编码器偏移 |
 
 ---
 
@@ -264,17 +246,6 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 1 | RECOVER | 恢复运行 |
 | 2 | RESET | 复位控制器 |
 
-**reason 定义:**
-| 值 | 原因 | 描述 |
-|----|------|------|
-| 0 | USER | 用户触发 |
-| 1 | OVERCURRENT | 过流 |
-| 2 | OVERVOLTAGE | 过压 |
-| 3 | UNDERVOLTAGE | 欠压 |
-| 4 | OVERTEMP | 过温 |
-| 5 | ENCODER_FAULT | 编码器故障 |
-| 6 | COMM_TIMEOUT | 通信超时 |
-
 ---
 
 ### 3.8 配置参数 (CMD_CONFIG = 0x7)
@@ -295,41 +266,13 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 值 | 命令 | 使用字段 | 描述 |
 |----|------|----------|------|
 | 0x00 | SET_NODE_ID | value_int | 设置节点ID (1-127) |
-| 0x01 | SET_MOTOR_PAIRS | value_int | 设置电机极对数 |
-| 0x02 | SET_MOTOR_DIR | value_int | 设置电机方向 (+1/-1) |
-| 0x03 | SET_VBUS | value_float | 设置标称母线电压 |
-| 0x04 | SET_HEARTBEAT | value_int | 设置心跳周期 (ms) |
-| 0x10 | SAVE_CONFIG | - | 保存配置到Flash |
-| 0x11 | LOAD_CONFIG | - | 从Flash加载配置 |
+| 0x01 | SET_HEARTBEAT | value_int | 设置心跳周期 (ms) |
+| 0x02 | SET_CALIBRATION | value_float | 执行电零角校准 (电压V，0则使用3V) |
 | 0x12 | RESET_CONFIG | - | 恢复默认配置 |
 
 ---
 
-### 3.9 校准命令 (CMD_CALIBRATE = 0x8)
-
-**方向**: 主机 → 节点  
-**数据长度**: 12字节  
-**CAN ID**: 0x400 + NODE_ID
-
-| Byte | 字段名 | 类型 | 描述 |
-|------|--------|------|------|
-| 0 | calib_type | uint8 | 校准类型 |
-| 1-3 | reserved | - | 保留 |
-| 4-7 | param1 | float32 | 参数1 |
-| 8-11 | param2 | float32 | 参数2 |
-
-**calib_type 定义:**
-| 值 | 类型 | param1 | param2 | 描述 |
-|----|------|--------|--------|------|
-| 0 | ENCODER_ALIGN | 对齐电压(V) | - | 编码器对齐校准 |
-| 1 | CURRENT_OFFSET | - | - | 电流偏置校准 |
-| 2 | SET_ZERO | - | - | 设置当前位置为零点 |
-| 3 | COGGING | - | - | 齿槽校准 |
-| 4 | SAVE | - | - | 保存校准数据到Flash |
-
----
-
-### 3.10 命令确认 (CMD_ACK = 0x9)
+### 3.9 命令确认 (CMD_ACK = 0x9)
 
 **方向**: 节点 → 主机  
 **数据长度**: 8字节  
@@ -344,7 +287,7 @@ CAN_ID = (CMD << 7) | NODE_ID
 
 ---
 
-### 3.11 广播命令 (CMD_BROADCAST = 0xF)
+### 3.10 广播命令 (CMD_BROADCAST = 0xF)
 
 **方向**: 主机 → 所有节点  
 **数据长度**: 8字节  
@@ -359,7 +302,6 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 值 | 命令 | 描述 |
 |----|------|------|
 | 0 | EMERGENCY_STOP | 所有节点紧急停止 |
-| 1 | SYNC_TIME | 时间同步 |
 | 2 | ALL_IDLE | 所有节点进入空闲 |
 
 ---
@@ -372,15 +314,6 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 0x01 | ERR_UNKNOWN_CMD | 未知命令 |
 | 0x02 | ERR_INVALID_PARAM | 参数无效 |
 | 0x03 | ERR_WRONG_MODE | 模式错误 |
-| 0x04 | ERR_NOT_CALIBRATED | 未校准 |
-| 0x05 | ERR_OVERCURRENT | 过流保护 |
-| 0x06 | ERR_UNDERVOLTAGE | 欠压保护 |
-| 0x07 | ERR_OVERVOLTAGE | 过压保护 |
-| 0x08 | ERR_OVERTEMP | 过温保护 |
-| 0x09 | ERR_ENCODER | 编码器故障 |
-| 0x0A | ERR_COMM_TIMEOUT | 通信超时 |
-| 0x0B | ERR_BUSY | 设备忙 |
-| 0x0C | ERR_FLASH | Flash操作失败 |
 
 ---
 
@@ -398,26 +331,11 @@ CAN_ID = (CMD << 7) | NODE_ID
 - 如果主机50ms内未收到ACK，应重发命令
 - 最多重试3次
 
-### 5.3 多节点同步
-
-- 使用广播命令可同时控制所有节点
-- 时间同步命令可用于多轴协调运动
-
 ---
 
-## 6. 滤波器配置
+## 6. 使用示例
 
-节点应配置FDCAN滤波器接收以下ID:
-
-1. **本节点命令**: (CMD << 7) | NODE_ID，其中CMD = 0x1~0x8
-2. **广播命令**: 0x7FF
-3. **紧急停止广播**: 0x37F
-
----
-
-## 7. 使用示例
-
-### 7.1 启动速度控制
+### 6.1 启动速度控制
 
 ```
 1. 主机 → 节点1: [ID=0x081] mode=2 (Velocity)
@@ -426,25 +344,15 @@ CAN_ID = (CMD << 7) | NODE_ID
 4. 节点1 → 主机: [ID=0x481] cmd=0x2, result=0 (OK)
 ```
 
-### 7.2 位置控制
+### 6.2 执行电零角校准
 
 ```
-1. 主机 → 节点1: [ID=0x081] mode=3 (Position)
-2. 节点1 → 主机: [ID=0x481] cmd=0x1, result=0 (OK)
-3. 主机 → 节点1: [ID=0x101] type=1, value=3.14159 rad
-4. 节点1 → 主机: [ID=0x481] cmd=0x2, result=0 (OK)
+1. 主机 → 节点1: [ID=0x381] config_cmd=0x02, value_float=3.0 (3V校准电压)
+2. 节点1执行校准并保存到Flash
+3. 节点1 → 主机: [ID=0x481] cmd=0x7, result=0 (OK)
 ```
 
-### 7.3 修改节点ID
-
-```
-1. 主机 → 节点1: [ID=0x381] config_cmd=0x00, value_int=2
-2. 节点1 → 主机: [ID=0x481] cmd=0x7, result=0 (OK)
-3. 主机 → 节点2: [ID=0x382] config_cmd=0x10 (保存配置)
-4. 节点2 → 主机: [ID=0x482] cmd=0x7, result=0 (OK)
-```
-
-### 7.4 紧急停止所有节点
+### 6.3 紧急停止所有节点
 
 ```
 1. 主机 → 广播: [ID=0x7FF] broadcast_cmd=0 (EMERGENCY_STOP)
@@ -453,22 +361,21 @@ CAN_ID = (CMD << 7) | NODE_ID
 
 ---
 
-## 8. 版本历史
+## 7. 版本历史
 
 | 版本 | 日期 | 描述 |
 |------|------|------|
 | V1.0 | 2026-02-12 | 初始版本 |
+| V1.1 | 2026-02-13 | 精简协议，移除未实现功能，添加校准命令 |
 
 ---
 
-## 9. 附录: 数据类型说明
+## 8. 附录: 数据类型说明
 
 | 类型 | 大小 | 字节序 | 描述 |
 |------|------|--------|------|
 | uint8 | 1字节 | - | 无符号8位整数 |
 | int8 | 1字节 | - | 有符号8位整数 |
 | uint16 | 2字节 | Little-Endian | 无符号16位整数 |
-| int16 | 2字节 | Little-Endian | 有符号16位整数 |
 | uint32 | 4字节 | Little-Endian | 无符号32位整数 |
-| int32 | 4字节 | Little-Endian | 有符号32位整数 |
 | float32 | 4字节 | Little-Endian (IEEE 754) | 单精度浮点数 |

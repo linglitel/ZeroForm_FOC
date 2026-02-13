@@ -6,7 +6,6 @@
 #include "app_motor.h"
 #include "app_utils.h"
 #include "app_cordic.h"
-#include "app_cogging.h"
 #include "main.h"
 
 extern TIM_HandleTypeDef htim1;
@@ -60,6 +59,7 @@ void FOC_SetPhaseVoltage(const float vd, const float vq, const float electronic_
 }
 
 void FOC_AlignSensor(float vd) {
+    __disable_irq();
     float angle_sum = 0.0f;
     uint8_t times = 5;
     FOC_SetPhaseVoltage(vd, 0, 0);
@@ -71,6 +71,7 @@ void FOC_AlignSensor(float vd) {
     }
     FOC.electrical_angle_offset = _normalizeAngle(angle_sum / (float) times);
     FOC_SetPhaseVoltage(0, 0, 0);
+    __enable_irq();
 }
 
 void FOC_Current_Loop(void) {
@@ -86,11 +87,7 @@ void FOC_Current_Loop(void) {
     FOC.Iq = alpha * FOC.Iq + (1.0f - alpha) * FOC.Iq_prev;
     FOC.Iq_prev = FOC.Iq;
     FOC.Id_target = 0.0f;
-    
-    // 添加齿槽补偿
-    float iq_target_compensated = FOC.Iq_target + Cogging_GetCompensation(FOC.mechanical_angle);
-    
-    FOC.pid_iq.target = iq_target_compensated;
+    FOC.pid_iq.target = FOC.Iq;
     FOC.pid_id.target = FOC.Id_target;
     FOC.Vd = PID_Update(&FOC.pid_id, FOC.Id);
     FOC.Vq = PID_Update(&FOC.pid_iq, FOC.Iq);
@@ -98,37 +95,33 @@ void FOC_Current_Loop(void) {
 }
 
 void FOC_Velocity_Loop(void) {
-    __disable_irq();
     float vel = FOC.mechanical_velocity;
-    __enable_irq();
     FOC.pid_velocity.target = FOC.velocity_target;
     float target_current_raw = PID_Update(&FOC.pid_velocity, vel);
-    
+
     // 添加电流前馈
     float target_current = target_current_raw + FOC.current_ff;
-    
-    __disable_irq();
+
     FOC.Iq_target = target_current;
-    __enable_irq();
 }
 
 void FOC_Position_Loop(void) {
     float pos = FOC.mechanical_angle * (float) FOC.direction;
-    
+
     // Calculate error and normalize to [-π, π] for shortest path
     float error = FOC.position_target - pos;
-    
+
     // Shortest path: limit error to [-π, π] range
     while (error > 3.14159265f) error -= 6.28318530f;
     while (error < -3.14159265f) error += 6.28318530f;
-    
+
     // Use normalized error to compute equivalent target
     FOC.pid_position.target = pos + error;
     float target_current_raw = PID_Update(&FOC.pid_position, pos);
-    
+
     // 添加速度前馈
     float target_current = target_current_raw + FOC.Kff_velocity * FOC.velocity_ff;
-    
+
     FOC.Iq_target = target_current;
 }
 
