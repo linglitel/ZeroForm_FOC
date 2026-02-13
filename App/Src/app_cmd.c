@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "app_flash.h"
+#include "app_cogging.h"
 // 全局命令处理器
 CMD_Handler_t CMD = {0};
 
@@ -255,6 +257,110 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         return;
     }
 
+    // ========== CALIB 命令 ==========
+    if (strncmp(cmd_str, "CALIB", 5) == 0) {
+        char *param = cmd_str + 5;
+        while (*param == ' ') param++;
+        
+        if (strncmp(param, "ALIGN", 5) == 0) {
+            // 电零角校准
+            param += 5;
+            while (*param == ' ') param++;
+            float voltage = 5.0f;
+            if (*param != '\0') {
+                voltage = strtof(param, NULL);
+                if (voltage < 1.0f) voltage = 1.0f;
+                if (voltage > 10.0f) voltage = 10.0f;
+            }
+            CMD_SendResponse("Calibrating encoder alignment...\r\n");
+            FOC.mode = IDLE;
+            FOC_AlignSensor(voltage);
+            // 更新Flash中的电零角
+            Flash_SetElectricalOffset(FOC.electrical_angle_offset);
+            snprintf(response, sizeof(response), 
+                     "OK: Electrical offset = %.4f rad\r\n"
+                     "Use SAVE to store to Flash\r\n", 
+                     FOC.electrical_angle_offset);
+            CMD_SendResponse(response);
+        } else if (strncmp(param, "COG", 3) == 0) {
+            // 齿槽校准
+            if (Cogging_GetState() != COGGING_STATE_IDLE && 
+                Cogging_GetState() != COGGING_STATE_COMPLETE &&
+                Cogging_GetState() != COGGING_STATE_ERROR) {
+                CMD_SendResponse("ERR: Cogging calibration already in progress\r\n");
+                return;
+            }
+            CMD_SendResponse("Starting cogging calibration...\r\n");
+            CMD_SendResponse("Motor will rotate slowly. Please wait ~30s\r\n");
+            if (Cogging_StartCalibration()) {
+                CMD_SendResponse("OK: Calibration started\r\n");
+            } else {
+                CMD_SendResponse("ERR: Failed to start calibration\r\n");
+            }
+        } else if (strncmp(param, "STATUS", 6) == 0) {
+            // 校准状态
+            snprintf(response, sizeof(response),
+                     "Calibration Status:\r\n"
+                     "  Electrical offset: %.4f rad (valid: %s)\r\n"
+                     "  Cogging: %s (progress: %d%%)\r\n",
+                     FOC.electrical_angle_offset,
+                     Flash_IsCalibrationValid() ? "Yes" : "No",
+                     Cogging_IsCalibrated() ? "Calibrated" : "Not calibrated",
+                     Cogging_GetProgress());
+            CMD_SendResponse(response);
+        } else {
+            CMD_SendResponse("CALIB commands:\r\n");
+            CMD_SendResponse("  CALIB ALIGN [V]  - Encoder alignment (default 5V)\r\n");
+            CMD_SendResponse("  CALIB COG        - Cogging torque calibration\r\n");
+            CMD_SendResponse("  CALIB STATUS     - Show calibration status\r\n");
+        }
+        return;
+    }
+    
+    // ========== SAVE 命令 ==========
+    if (strncmp(cmd_str, "SAVE", 4) == 0) {
+        CMD_SendResponse("Saving configuration to Flash...\r\n");
+        // 准备齿槽数据
+        Cogging_PrepareForSave();
+        // 保存到Flash
+        if (Flash_SaveAll() == HAL_OK) {
+            CMD_SendResponse("OK: Configuration saved to Flash\r\n");
+        } else {
+            CMD_SendResponse("ERR: Failed to save to Flash\r\n");
+        }
+        return;
+    }
+    
+    // ========== COGGING 命令 ==========
+    if (strncmp(cmd_str, "COGGING", 7) == 0) {
+        char *param = cmd_str + 7;
+        while (*param == ' ') param++;
+        
+        if (strncmp(param, "ON", 2) == 0) {
+            if (Cogging_IsCalibrated()) {
+                Cogging_SetEnabled(true);
+                Flash_SetCoggingEnabled(true);  // 同步到Flash数据
+                CMD_SendResponse("OK: Cogging compensation enabled\r\n");
+                CMD_SendResponse("Use SAVE to persist this setting\r\n");
+            } else {
+                CMD_SendResponse("ERR: Cogging not calibrated. Run CALIB COG first\r\n");
+            }
+        } else if (strncmp(param, "OFF", 3) == 0) {
+            Cogging_SetEnabled(false);
+            Flash_SetCoggingEnabled(false);  // 同步到Flash数据
+            CMD_SendResponse("OK: Cogging compensation disabled\r\n");
+            CMD_SendResponse("Use SAVE to persist this setting\r\n");
+        } else {
+            snprintf(response, sizeof(response),
+                     "Cogging compensation: %s\r\n"
+                     "  COGGING ON   - Enable compensation\r\n"
+                     "  COGGING OFF  - Disable compensation\r\n",
+                     Cogging_IsEnabled() ? "Enabled" : "Disabled");
+            CMD_SendResponse(response);
+        }
+        return;
+    }
+
     // ========== HELP 命令 ==========
     if (strncmp(cmd_str, "HELP", 4) == 0) {
         CMD_SendResponse("Commands:\r\n");
@@ -262,10 +368,13 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         CMD_SendResponse("  VEL <rad/s>   - Set velocity target\r\n");
         CMD_SendResponse("  POS A <deg>   - Absolute position (degrees)\r\n");
         CMD_SendResponse("  POS R <deg>   - Relative position (degrees)\r\n");
-        CMD_SendResponse("  POS A <val>R  - Absolute position (radians)\r\n");
-        CMD_SendResponse("  POS R <val>R  - Relative position (radians)\r\n");
         CMD_SendResponse("  STATUS        - Show current status\r\n");
         CMD_SendResponse("  STOP          - Stop motor\r\n");
+        CMD_SendResponse("  CALIB ALIGN   - Encoder alignment calibration\r\n");
+        CMD_SendResponse("  CALIB COG     - Cogging torque calibration\r\n");
+        CMD_SendResponse("  CALIB STATUS  - Show calibration status\r\n");
+        CMD_SendResponse("  COGGING ON/OFF- Enable/disable cogging compensation\r\n");
+        CMD_SendResponse("  SAVE          - Save config to Flash\r\n");
         return;
     }
 

@@ -324,6 +324,8 @@ CAN_ID = (CMD << 7) | NODE_ID
 | 0 | ENCODER_ALIGN | 对齐电压(V) | - | 编码器对齐校准 |
 | 1 | CURRENT_OFFSET | - | - | 电流偏置校准 |
 | 2 | SET_ZERO | - | - | 设置当前位置为零点 |
+| 3 | COGGING | - | - | 齿槽校准 |
+| 4 | SAVE | - | - | 保存校准数据到Flash |
 
 ---
 

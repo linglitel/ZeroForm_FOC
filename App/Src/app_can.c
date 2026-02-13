@@ -7,6 +7,8 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include "app_flash.h"
+#include "app_cogging.h"
 
 //==============================================================================
 // 设备信息
@@ -757,6 +759,7 @@ static void CAN_HandleCalibrate(uint8_t *data, uint32_t dlc) {
             // 执行编码器对齐校准
             FOC.mode = IDLE;
             FOC_AlignSensor(calib->param1 > 0 ? calib->param1 : 5.0f);
+            Flash_SetElectricalOffset(FOC.electrical_angle_offset);
             CAN_Status.status_flags |= CAN_STATUS_FLAG_CALIBRATED;
             break;
             
@@ -766,6 +769,25 @@ static void CAN_HandleCalibrate(uint8_t *data, uint32_t dlc) {
             
         case CAN_CALIB_SET_ZERO:
             // 设置当前位置为零点 (预留)
+            break;
+            
+        case CAN_CALIB_COGGING:  // 齿槽校准
+            if (Cogging_GetState() != COGGING_STATE_IDLE && 
+                Cogging_GetState() != COGGING_STATE_COMPLETE &&
+                Cogging_GetState() != COGGING_STATE_ERROR) {
+                result = CAN_ERR_BUSY;
+            } else {
+                if (!Cogging_StartCalibration()) {
+                    result = CAN_ERR_BUSY;
+                }
+            }
+            break;
+            
+        case CAN_CALIB_SAVE:  // 保存校准数据到Flash
+            Cogging_PrepareForSave();
+            if (Flash_SaveAll() != HAL_OK) {
+                result = CAN_ERR_FLASH;
+            }
             break;
             
         default:

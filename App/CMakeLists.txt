@@ -9,6 +9,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_cmd.h
         ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_can.h
         ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_cordic.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_flash.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Inc/app_cogging.h
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_main.c
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_foc.c
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_pid.c
@@ -19,6 +21,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_cmd.c
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_can.c
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_cordic.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_flash.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_cogging.c
 )
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Inc

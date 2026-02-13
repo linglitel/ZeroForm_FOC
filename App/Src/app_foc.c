@@ -6,6 +6,7 @@
 #include "app_motor.h"
 #include "app_utils.h"
 #include "app_cordic.h"
+#include "app_cogging.h"
 #include "main.h"
 
 extern TIM_HandleTypeDef htim1;
@@ -85,7 +86,11 @@ void FOC_Current_Loop(void) {
     FOC.Iq = alpha * FOC.Iq + (1.0f - alpha) * FOC.Iq_prev;
     FOC.Iq_prev = FOC.Iq;
     FOC.Id_target = 0.0f;
-    FOC.pid_iq.target = FOC.Iq_target;
+    
+    // 添加齿槽补偿
+    float iq_target_compensated = FOC.Iq_target + Cogging_GetCompensation(FOC.mechanical_angle);
+    
+    FOC.pid_iq.target = iq_target_compensated;
     FOC.pid_id.target = FOC.Id_target;
     FOC.Vd = PID_Update(&FOC.pid_id, FOC.Id);
     FOC.Vq = PID_Update(&FOC.pid_iq, FOC.Iq);
@@ -98,8 +103,12 @@ void FOC_Velocity_Loop(void) {
     __enable_irq();
     FOC.pid_velocity.target = FOC.velocity_target;
     float target_current_raw = PID_Update(&FOC.pid_velocity, vel);
+    
+    // 添加电流前馈
+    float target_current = target_current_raw + FOC.current_ff;
+    
     __disable_irq();
-    FOC.Iq_target = target_current_raw;
+    FOC.Iq_target = target_current;
     __enable_irq();
 }
 
@@ -115,7 +124,11 @@ void FOC_Position_Loop(void) {
     
     // Use normalized error to compute equivalent target
     FOC.pid_position.target = pos + error;
-    float target_current = PID_Update(&FOC.pid_position, pos);
+    float target_current_raw = PID_Update(&FOC.pid_position, pos);
+    
+    // 添加速度前馈
+    float target_current = target_current_raw + FOC.Kff_velocity * FOC.velocity_ff;
+    
     FOC.Iq_target = target_current;
 }
 

@@ -127,7 +127,9 @@ typedef enum {
 typedef enum {
     CAN_CALIB_ENCODER_ALIGN     = 0,    // 编码器对齐校准
     CAN_CALIB_CURRENT_OFFSET    = 1,    // 电流偏置校准
-    CAN_CALIB_SET_ZERO          = 2     // 设置当前位置为零点
+    CAN_CALIB_SET_ZERO          = 2,    // 设置当前位置为零点
+    CAN_CALIB_COGGING           = 3,    // 齿槽校准
+    CAN_CALIB_SAVE              = 4     // 保存校准数据到Flash
 } CAN_CalibType_t;
 
 //==============================================================================
