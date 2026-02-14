@@ -1,3 +1,9 @@
+## [1.1.2](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.1...v1.1.2) (2026-02-13)
+
+### Bug Fixes
+
+* **foc:** resolve velocity and position loop not working after power-on ([014cda5](https://github.com/linglitel/ZeroForm_FOC/commit/014cda5cedc46b954365e85a1d0c04a12d775d2f))
+
 ## [1.1.1](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.0...v1.1.1) (2026-02-13)
 
 ### ⚠ BREAKING CHANGES
