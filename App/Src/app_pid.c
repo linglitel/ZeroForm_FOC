@@ -43,3 +43,23 @@ float PID_Update(PID_Controller *pid, float feedback) {
 
     return output;
 }
+
+float PID_Update_Error(PID_Controller *pid, float error) {
+    pid->error = error;
+
+    pid->integral += error * pid->dt;
+    if (pid->integral > pid->integral_limit) pid->integral = pid->integral_limit;
+    if (pid->integral < -pid->integral_limit) pid->integral = -pid->integral_limit;
+
+    float derivative = (error - pid->last_error) / pid->dt;
+
+    float output = pid->Kp * error + pid->Ki * pid->integral + pid->Kd * derivative;
+
+    if (output > pid->output_limit) output = pid->output_limit;
+    if (output < -pid->output_limit) output = -pid->output_limit;
+
+    pid->last_error = error;
+    pid->output = output;
+
+    return output;
+}

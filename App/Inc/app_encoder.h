@@ -13,5 +13,7 @@ void Encoder_Init(void);
 
 void Encoder_Update(void);
 
+// 在速度环中调用，计算速度（1kHz）
+void Encoder_UpdateVelocity(void);
 
 #endif //ZEROFORM_FOC_APP_ENCODER_H

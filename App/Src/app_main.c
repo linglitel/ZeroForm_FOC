@@ -13,7 +13,7 @@
 #include "app_utils.h"
 #include "app_flash.h"
 
-const char *VERSION = "1.0.2";
+const char *VERSION = "1.2.0";
 
 #define ADC_RESOLUTION      4095.0f
 #define ADC_VREF            3.3f
@@ -110,8 +110,9 @@ void App_Init(void) {
     PID_Init(&FOC.pid_id, 0, 0, 0, 1.0f / 10000.0f, 0, 0);
     FOC.Id = 0;
     PID_Init(&FOC.pid_iq, 2.5f, 0.45f, 0.0f, 1.0f / 10000.0f, 16.0f, 6.0f);
-    PID_Init(&FOC.pid_velocity, 0.1f, 0.01f, 0.0f, 1.0f / 5000.0f, 30.0f, 10.0f);
-    PID_Init(&FOC.pid_position, 5.0f, 0.0f, 0.1f, 1.0f / 5000.0f, 50.0f, 20.0f);
+    PID_Init(&FOC.pid_velocity, 0.2f, 0.05f, 0.0f, 1.0f / 1000.0f, 10.0f, 50.0f);
+    // 写不动，真的写不动
+    PID_Init(&FOC.pid_position, 5.0f, 0.0f, 0.1f, 1.0f / 1000.0f, 50.0f, 20.0f);
     FOC.mode = IDLE;
     Encoder_Update();
     FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
@@ -123,9 +124,30 @@ void App_Init(void) {
     HAL_ADCEx_InjectedStart_IT(&hadc1);
     CMD_Init(&huart1);
 
+    uint32_t last_stream_tick = 0;
+    
     while (1) {
         CMD_Process();
         CAN_Process();
+        
+        // 数据流输出 (每10ms输出一次，100Hz)
+        if (FOC_Debug.stream_enabled) {
+            uint32_t now = HAL_GetTick();
+            if (now - last_stream_tick >= 10) {
+                last_stream_tick = now;
+                FOC_Debug.debug_counter++;
+                // CSV格式: time,vel_target,vel_measured,vel_error,iq_target,iq_actual,vq,integral
+                printf("%lu,%.2f,%.2f,%.2f,%.3f,%.3f,%.2f,%.3f\r\n",
+                       FOC_Debug.debug_counter * 10,  // 时间(ms)
+                       FOC.velocity_target,
+                       FOC_Debug.velocity_measured,  // 使用中断中保存的速度值
+                       FOC_Debug.velocity_error,
+                       FOC_Debug.velocity_output,    // 使用中断中保存的输出值
+                       FOC.Iq,
+                       FOC.Vq,
+                       FOC.pid_velocity.integral);
+            }
+        }
     }
 }
 

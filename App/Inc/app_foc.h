@@ -95,6 +95,22 @@ typedef struct {
 /** @brief FOC控制器全局实例 */
 extern FOC_t FOC;
 
+/**
+ * @brief FOC调试信息结构体
+ */
+typedef struct {
+    float velocity_error;      /**< 速度误差 (rad/s) */
+    float velocity_output;     /**< 速度环输出 (A) */
+    float velocity_measured;   /**< 速度环调用时的实际速度 */
+    float position_error;      /**< 位置误差 (rad) */
+    float position_output;     /**< 位置环输出 (A) */
+    uint32_t debug_counter;    /**< 调试计数器 */
+    uint8_t stream_enabled;    /**< 数据流输出使能 */
+} FOC_Debug_t;
+
+/** @brief FOC调试信息全局实例 */
+extern FOC_Debug_t FOC_Debug;
+
 //==============================================================================
 // 函数声明
 //==============================================================================
@@ -108,9 +124,21 @@ void FOC_AlignSensor(float vd);
 
 /**
  * @brief   速度环控制
- * @note    在ADC中断中调用，频率为5kHz
+ * @note    在ADC中断中调用，频率为1kHz
  */
 void FOC_Velocity_Loop(void);
+
+/**
+ * @brief   位置环控制
+ * @note    在ADC中断中调用，频率为1kHz
+ */
+void FOC_Position_Loop(void);
+
+/**
+ * @brief   电流环控制
+ * @note    在ADC中断中调用，频率为10kHz
+ */
+void FOC_Current_Loop(void);
 
 /**
  * @brief   设置相电压 (SVPWM调制)

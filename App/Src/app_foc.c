@@ -3,16 +3,22 @@
 //
 #include "app_foc.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdint.h>
 #include "app_motor.h"
 #include "app_utils.h"
 #include "app_cordic.h"
+#include "app_encoder.h"
 #include "main.h"
 
 extern TIM_HandleTypeDef htim1;
 extern SPI_HandleTypeDef hspi1;
 
+// 速度/位置环分频系数: 10kHz / 10 = 1kHz
+#define VEL_POS_LOOP_DIV    10
 
 FOC_t FOC;
+FOC_Debug_t FOC_Debug;
 
 void FOC_SetPhaseVoltage(const float vd, const float vq, const float electronic_angle) {
     if (isnan(vd) || isnan(vq) || isnan(electronic_angle)) {
@@ -105,48 +111,41 @@ void FOC_Current_Loop(void) {
 }
 
 void FOC_Velocity_Loop(void) {
-    __disable_irq();
+    // 先更新速度（使用累积的角度增量）
+    Encoder_UpdateVelocity();
+    
     float vel = FOC.mechanical_velocity;
-    __enable_irq();
-    FOC.pid_velocity.target = FOC.velocity_target;
-    float target_current_raw = PID_Update(&FOC.pid_velocity, vel);
-    __disable_irq();
-    FOC.Iq_target = target_current_raw;
-    __enable_irq();
+    
+    // 计算速度误差
+    float error = FOC.velocity_target - vel;
+    
+    // 使用统一的PID_Update_Error接口
+    float target_current = PID_Update_Error(&FOC.pid_velocity, error);
+    
+    // 保存调试信息（在中断中保存，确保数据一致性）
+    FOC_Debug.velocity_measured = vel;
+    FOC_Debug.velocity_error = error;
+    FOC_Debug.velocity_output = target_current;
+    
+    FOC.Iq_target = target_current;
 }
 
 void FOC_Position_Loop(void) {
     float pos = FOC.mechanical_angle * (float) FOC.direction;
 
-    // Calculate error and normalize to [-π, π] for shortest path
+    // 计算位置误差并归一化到 [-π, π] 实现最短路径
     float error = FOC.position_target - pos;
 
-    // Shortest path: limit error to [-π, π] range
+    // 最短路径: 限制误差到 [-π, π] 范围
     while (error > 3.14159265f) error -= 6.28318530f;
     while (error < -3.14159265f) error += 6.28318530f;
 
-    // 直接使用误差计算PID输出，而不是修改target
-    // 这样可以避免target和feedback都在变化导致的问题
-    float target_current = FOC.pid_position.Kp * error 
-                         + FOC.pid_position.Ki * FOC.pid_position.integral
-                         + FOC.pid_position.Kd * (error - FOC.pid_position.last_error) / FOC.pid_position.dt;
+    // 使用统一的PID_Update_Error接口
+    float target_current = PID_Update_Error(&FOC.pid_position, error);
     
-    // 更新积分项
-    FOC.pid_position.integral += error * FOC.pid_position.dt;
-    if (FOC.pid_position.integral > FOC.pid_position.integral_limit) 
-        FOC.pid_position.integral = FOC.pid_position.integral_limit;
-    if (FOC.pid_position.integral < -FOC.pid_position.integral_limit) 
-        FOC.pid_position.integral = -FOC.pid_position.integral_limit;
-    
-    // 限制输出
-    if (target_current > FOC.pid_position.output_limit) 
-        target_current = FOC.pid_position.output_limit;
-    if (target_current < -FOC.pid_position.output_limit) 
-        target_current = -FOC.pid_position.output_limit;
-    
-    FOC.pid_position.last_error = error;
-    FOC.pid_position.error = error;
-    FOC.pid_position.output = target_current;
+    // 保存调试信息
+    FOC_Debug.position_error = error;
+    FOC_Debug.position_output = target_current;
     
     FOC.Iq_target = target_current;
 }
@@ -169,7 +168,7 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc) {
             return;
         }
 
-        if (++FOC.vel_loop_counter >= 2) {
+        if (++FOC.vel_loop_counter >= VEL_POS_LOOP_DIV) {
             FOC.vel_loop_counter = 0;
             if (FOC.mode == Velocity) {
                 FOC_Velocity_Loop();

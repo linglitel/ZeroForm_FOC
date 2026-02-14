@@ -27,4 +27,12 @@ void PID_Init(PID_Controller *pid, float Kp, float Ki, float Kd,
 
 float PID_Update(PID_Controller *pid, float feedback);
 
+/**
+ * @brief   PID更新函数（传入误差）
+ * @param   pid PID控制器指针
+ * @param   error 误差值 (target - feedback)
+ * @return  PID输出值
+ */
+float PID_Update_Error(PID_Controller *pid, float error);
+
 #endif //ZEROFORM_FOC_APP_PID_H

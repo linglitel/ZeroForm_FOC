@@ -97,12 +97,13 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         while (*param == ' ') param++;
 
         if (*param == 'V') {
-            // 切换到速度模式前，重置相关PID状态
+            // 切换到速度模式前，重置相关PID状态和速度测量
             FOC.pid_velocity.integral = 0.0f;
             FOC.pid_velocity.last_error = 0.0f;
             FOC.pid_iq.integral = 0.0f;
             FOC.velocity_target = 0.0f;
             FOC.Iq_target = 0.0f;
+            FOC.mechanical_velocity = 0.0f;  // 重置速度测量
             FOC.mode = Velocity;
             CMD_SendResponse("OK: Mode = Velocity\r\n");
         } else if (*param == 'P') {
@@ -222,6 +223,104 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         return;
     }
 
+    // DEBUG 命令 - 显示调试信息
+    if (strncmp(cmd_str, "DEBUG", 5) == 0) {
+        snprintf(response, sizeof(response),
+                 "=== Velocity Loop ===\r\n"
+                 "Target: %.2f rad/s\r\n"
+                 "Actual: %.2f rad/s\r\n"
+                 "Error: %.2f rad/s\r\n"
+                 "Output(Iq): %.3f A\r\n",
+                 FOC.velocity_target, FOC.mechanical_velocity,
+                 FOC_Debug.velocity_error, FOC_Debug.velocity_output);
+        CMD_SendResponse(response);
+        
+        snprintf(response, sizeof(response),
+                 "PID: P=%.3f I=%.3f D=%.3f\r\n"
+                 "Integral: %.3f\r\n",
+                 FOC.pid_velocity.Kp, FOC.pid_velocity.Ki, FOC.pid_velocity.Kd,
+                 FOC.pid_velocity.integral);
+        CMD_SendResponse(response);
+        
+        snprintf(response, sizeof(response),
+                 "=== Current Loop ===\r\n"
+                 "Iq_target: %.3f A\r\n"
+                 "Iq_actual: %.3f A\r\n"
+                 "Iq_error: %.3f A\r\n"
+                 "Vq: %.2f V\r\n",
+                 FOC.Iq_target, FOC.Iq, FOC.pid_iq.error, FOC.Vq);
+        CMD_SendResponse(response);
+        return;
+    }
+
+    // STREAM 命令 - 开启/关闭数据流输出
+    // 格式: STREAM ON 或 STREAM OFF
+    // 输出格式(CSV): time,vel_target,vel_actual,vel_error,iq_target,iq_actual,vq,integral
+    if (strncmp(cmd_str, "STREAM", 6) == 0) {
+        char *param = cmd_str + 6;
+        while (*param == ' ') param++;
+        
+        if (strncmp(param, "ON", 2) == 0) {
+            FOC_Debug.stream_enabled = 1;
+            FOC_Debug.debug_counter = 0;
+            CMD_SendResponse("OK: Stream ON\r\n");
+            CMD_SendResponse("# time,vel_t,vel,err,iq_t,iq,vq,integ\r\n");
+        } else if (strncmp(param, "OFF", 3) == 0) {
+            FOC_Debug.stream_enabled = 0;
+            CMD_SendResponse("OK: Stream OFF\r\n");
+        } else {
+            CMD_SendResponse("ERR: Use STREAM ON/OFF\r\n");
+        }
+        return;
+    }
+
+    // PID 命令 - 设置速度环PID参数
+    if (strncmp(cmd_str, "PID", 3) == 0) {
+        char *param = cmd_str + 3;
+        while (*param == ' ') param++;
+        
+        if (*param == 'V') {
+            // 速度环PID: PID V <Kp> <Ki> <Kd>
+            param++;
+            while (*param == ' ') param++;
+            float kp = strtof(param, &param);
+            while (*param == ' ') param++;
+            float ki = strtof(param, &param);
+            while (*param == ' ') param++;
+            float kd = strtof(param, NULL);
+            
+            FOC.pid_velocity.Kp = kp;
+            FOC.pid_velocity.Ki = ki;
+            FOC.pid_velocity.Kd = kd;
+            FOC.pid_velocity.integral = 0.0f;
+            
+            snprintf(response, sizeof(response), 
+                     "OK: Velocity PID = %.3f, %.3f, %.3f\r\n", kp, ki, kd);
+            CMD_SendResponse(response);
+        } else if (*param == 'I') {
+            // 电流环PID: PID I <Kp> <Ki> <Kd>
+            param++;
+            while (*param == ' ') param++;
+            float kp = strtof(param, &param);
+            while (*param == ' ') param++;
+            float ki = strtof(param, &param);
+            while (*param == ' ') param++;
+            float kd = strtof(param, NULL);
+            
+            FOC.pid_iq.Kp = kp;
+            FOC.pid_iq.Ki = ki;
+            FOC.pid_iq.Kd = kd;
+            FOC.pid_iq.integral = 0.0f;
+            
+            snprintf(response, sizeof(response), 
+                     "OK: Current PID = %.3f, %.3f, %.3f\r\n", kp, ki, kd);
+            CMD_SendResponse(response);
+        } else {
+            CMD_SendResponse("ERR: Use PID V/I <Kp> <Ki> <Kd>\r\n");
+        }
+        return;
+    }
+
     // HELP 命令
     if (strncmp(cmd_str, "HELP", 4) == 0) {
         CMD_SendResponse("Commands:\r\n");
@@ -229,6 +328,9 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         CMD_SendResponse("  VEL <rad/s> - Set velocity\r\n");
         CMD_SendResponse("  POS A/R <deg> - Set position\r\n");
         CMD_SendResponse("  STATUS - Show status\r\n");
+        CMD_SendResponse("  DEBUG - Show debug info\r\n");
+        CMD_SendResponse("  STREAM ON/OFF - Data stream\r\n");
+        CMD_SendResponse("  PID V/I <Kp> <Ki> <Kd> - Set PID\r\n");
         CMD_SendResponse("  STOP - Stop motor\r\n");
         CMD_SendResponse("  CALIB [V] - Calibrate encoder\r\n");
         return;
