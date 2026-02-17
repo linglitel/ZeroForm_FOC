@@ -74,6 +74,10 @@ typedef struct {
     float Ib; /**< B相电流 (A) */
     float Ic; /**< C相电流 (A) */
 
+    float duty_a;
+    float duty_b;
+    float duty_c;
+
     float Iq_target; /**< Iq目标值 (A) */
     float Id_target; /**< Id目标值 (A) */
 
@@ -99,13 +103,13 @@ extern FOC_t FOC;
  * @brief FOC调试信息结构体
  */
 typedef struct {
-    float velocity_error;      /**< 速度误差 (rad/s) */
-    float velocity_output;     /**< 速度环输出 (A) */
-    float velocity_measured;   /**< 速度环调用时的实际速度 */
-    float position_error;      /**< 位置误差 (rad) */
-    float position_output;     /**< 位置环输出 (A) */
-    uint32_t debug_counter;    /**< 调试计数器 */
-    uint8_t stream_enabled;    /**< 数据流输出使能 */
+    float velocity_error; /**< 速度误差 (rad/s) */
+    float velocity_output; /**< 速度环输出 (A) */
+    float velocity_measured; /**< 速度环调用时的实际速度 */
+    float position_error; /**< 位置误差 (rad) */
+    float position_output; /**< 位置环输出 (A) */
+    uint32_t debug_counter; /**< 调试计数器 */
+    uint8_t stream_enabled; /**< 数据流输出使能 */
 } FOC_Debug_t;
 
 /** @brief FOC调试信息全局实例 */

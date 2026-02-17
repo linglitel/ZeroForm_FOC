@@ -57,36 +57,36 @@ void FOC_SetPhaseVoltage(const float vd, const float vq, const float electronic_
     float vb_final = vb_raw + v_neutral;
     float vc_final = vc_raw + v_neutral;
 
-    float duty_a = 0.5f * (va_final + 1.0f);
-    float duty_b = 0.5f * (vb_final + 1.0f);
-    float duty_c = 0.5f * (vc_final + 1.0f);
+    FOC.duty_a = 0.5f * (va_final + 1.0f);
+    FOC.duty_b = 0.5f * (vb_final + 1.0f);
+    FOC.duty_c = 0.5f * (vc_final + 1.0f);
 
-    Motor_Set_Duty(duty_a, duty_b, duty_c);
+    Motor_Set_Duty(FOC.duty_a, FOC.duty_b, FOC.duty_c);
 }
 
 void FOC_AlignSensor(float vd) {
     __disable_irq();
     float angle_sum = 0.0f;
     uint8_t times = 5;
-    
+
     // 先读取一次编码器，初始化mechanical_angle_previous
     Encoder_Update();
-    
+
     FOC_SetPhaseVoltage(vd, 0, 0);
-    DWT_Delay(1000000);  // 1秒，等待电机稳定到零位
-    
+    DWT_Delay(1000000); // 1秒，等待电机稳定到零位
+
     for (int i = 0; i < times; i++) {
         Encoder_Update();
         angle_sum += (float) FOC.direction * FOC.mechanical_angle * (float) FOC.pairs;
-        DWT_Delay(10000);  // 10ms
+        DWT_Delay(10000); // 10ms
     }
     FOC.electrical_angle_offset = _normalizeAngle(angle_sum / (float) times);
     FOC_SetPhaseVoltage(0, 0, 0);
-    
+
     // 校准完成后，初始化mechanical_angle_previous为当前值
     // 这样下次Encoder_Update时速度计算不会出现跳变
     Encoder_Update();
-    
+
     __enable_irq();
 }
 
@@ -113,20 +113,20 @@ void FOC_Current_Loop(void) {
 void FOC_Velocity_Loop(void) {
     // 先更新速度（使用累积的角度增量）
     Encoder_UpdateVelocity();
-    
+
     float vel = FOC.mechanical_velocity;
-    
+
     // 计算速度误差
     float error = FOC.velocity_target - vel;
-    
+
     // 使用统一的PID_Update_Error接口
     float target_current = PID_Update_Error(&FOC.pid_velocity, error);
-    
+
     // 保存调试信息（在中断中保存，确保数据一致性）
     FOC_Debug.velocity_measured = vel;
     FOC_Debug.velocity_error = error;
     FOC_Debug.velocity_output = target_current;
-    
+
     FOC.Iq_target = target_current;
 }
 
@@ -142,11 +142,11 @@ void FOC_Position_Loop(void) {
 
     // 使用统一的PID_Update_Error接口
     float target_current = PID_Update_Error(&FOC.pid_position, error);
-    
+
     // 保存调试信息
     FOC_Debug.position_error = error;
     FOC_Debug.position_output = target_current;
-    
+
     FOC.Iq_target = target_current;
 }
 

@@ -103,7 +103,7 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             FOC.pid_iq.integral = 0.0f;
             FOC.velocity_target = 0.0f;
             FOC.Iq_target = 0.0f;
-            FOC.mechanical_velocity = 0.0f;  // 重置速度测量
+            FOC.mechanical_velocity = 0.0f; // 重置速度测量
             FOC.mode = Velocity;
             CMD_SendResponse("OK: Mode = Velocity\r\n");
         } else if (*param == 'P') {
@@ -115,6 +115,14 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             FOC.Iq_target = 0.0f;
             FOC.mode = Position;
             CMD_SendResponse("OK: Mode = Position\r\n");
+        } else if (*param == 'C') {
+            FOC.pid_position.integral = 0.0f;
+            FOC.pid_position.last_error = 0.0f;
+            FOC.pid_iq.integral = 0.0f;
+            FOC.position_target = FOC.mechanical_angle * (float) FOC.direction;
+            FOC.Iq_target = 0.0f;
+            FOC.mode = Current;
+            CMD_SendResponse("OK: Mode = Current\r\n");
         } else if (*param == 'I') {
             FOC.mode = IDLE;
             FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
@@ -163,6 +171,19 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             CMD_SendResponse("ERR: Use POS A <angle> or POS R <angle>\r\n");
             return;
         }
+        CMD_SendResponse(response);
+        return;
+    }
+    if (strncmp(cmd_str, "CUR", 3) == 0) {
+        if (FOC.mode != Current) {
+            CMD_SendResponse("ERR: Not in Current mode\r\n");
+            return;
+        }
+        char *param = cmd_str + 3;
+        while (*param == ' ') param++;
+        float Iq = strtof(param, NULL);
+        FOC.Iq_target = Iq;
+        snprintf(response, sizeof(response), "OK: Current = %.2f rad/s\r\n", Iq);
         CMD_SendResponse(response);
         return;
     }
@@ -234,14 +255,14 @@ static void CMD_ParseAndExecute(char *cmd_str) {
                  FOC.velocity_target, FOC.mechanical_velocity,
                  FOC_Debug.velocity_error, FOC_Debug.velocity_output);
         CMD_SendResponse(response);
-        
+
         snprintf(response, sizeof(response),
                  "PID: P=%.3f I=%.3f D=%.3f\r\n"
                  "Integral: %.3f\r\n",
                  FOC.pid_velocity.Kp, FOC.pid_velocity.Ki, FOC.pid_velocity.Kd,
                  FOC.pid_velocity.integral);
         CMD_SendResponse(response);
-        
+
         snprintf(response, sizeof(response),
                  "=== Current Loop ===\r\n"
                  "Iq_target: %.3f A\r\n"
@@ -259,7 +280,7 @@ static void CMD_ParseAndExecute(char *cmd_str) {
     if (strncmp(cmd_str, "STREAM", 6) == 0) {
         char *param = cmd_str + 6;
         while (*param == ' ') param++;
-        
+
         if (strncmp(param, "ON", 2) == 0) {
             FOC_Debug.stream_enabled = 1;
             FOC_Debug.debug_counter = 0;
@@ -278,7 +299,7 @@ static void CMD_ParseAndExecute(char *cmd_str) {
     if (strncmp(cmd_str, "PID", 3) == 0) {
         char *param = cmd_str + 3;
         while (*param == ' ') param++;
-        
+
         if (*param == 'V') {
             // 速度环PID: PID V <Kp> <Ki> <Kd>
             param++;
@@ -288,13 +309,13 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             float ki = strtof(param, &param);
             while (*param == ' ') param++;
             float kd = strtof(param, NULL);
-            
+
             FOC.pid_velocity.Kp = kp;
             FOC.pid_velocity.Ki = ki;
             FOC.pid_velocity.Kd = kd;
             FOC.pid_velocity.integral = 0.0f;
-            
-            snprintf(response, sizeof(response), 
+
+            snprintf(response, sizeof(response),
                      "OK: Velocity PID = %.3f, %.3f, %.3f\r\n", kp, ki, kd);
             CMD_SendResponse(response);
         } else if (*param == 'I') {
@@ -306,13 +327,13 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             float ki = strtof(param, &param);
             while (*param == ' ') param++;
             float kd = strtof(param, NULL);
-            
+
             FOC.pid_iq.Kp = kp;
             FOC.pid_iq.Ki = ki;
             FOC.pid_iq.Kd = kd;
             FOC.pid_iq.integral = 0.0f;
-            
-            snprintf(response, sizeof(response), 
+
+            snprintf(response, sizeof(response),
                      "OK: Current PID = %.3f, %.3f, %.3f\r\n", kp, ki, kd);
             CMD_SendResponse(response);
         } else {

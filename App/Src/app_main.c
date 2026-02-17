@@ -76,6 +76,8 @@ void App_Init(void) {
         if (m_vbus < 11.0f) {
             printf("VBUS undervoltage fault ERROR_HANDLE\r\n");
             Error_Handler();
+        } else {
+            FOC.Vbus = m_vbus;
         }
     }
     HAL_ADC_Stop(&hadc1);
@@ -116,7 +118,6 @@ void App_Init(void) {
     FOC.mode = IDLE;
     Encoder_Update();
     FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);
-
     CAN_Init(&hfdcan1);
     CAN_Start();
     printf("System Initialized\r\n");
@@ -125,11 +126,11 @@ void App_Init(void) {
     CMD_Init(&huart1);
 
     uint32_t last_stream_tick = 0;
-    
+
     while (1) {
         CMD_Process();
         CAN_Process();
-        
+
         // 数据流输出 (每10ms输出一次，100Hz)
         if (FOC_Debug.stream_enabled) {
             uint32_t now = HAL_GetTick();
@@ -137,15 +138,20 @@ void App_Init(void) {
                 last_stream_tick = now;
                 FOC_Debug.debug_counter++;
                 // CSV格式: time,vel_target,vel_measured,vel_error,iq_target,iq_actual,vq,integral
-                printf("%lu,%.2f,%.2f,%.2f,%.3f,%.3f,%.2f,%.3f\r\n",
-                       FOC_Debug.debug_counter * 10,  // 时间(ms)
+                printf("%lu,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.2f,%.3f,%.3f,%.3f,%.3f\r\n",
+                       FOC_Debug.debug_counter * 10, // 时间(ms)
                        FOC.velocity_target,
-                       FOC_Debug.velocity_measured,  // 使用中断中保存的速度值
+                       FOC_Debug.velocity_measured, // 使用中断中保存的速度值
                        FOC_Debug.velocity_error,
-                       FOC_Debug.velocity_output,    // 使用中断中保存的输出值
+                       FOC_Debug.velocity_output, // 使用中断中保存的输出值
+                       FOC.Iq_target,
                        FOC.Iq,
                        FOC.Vq,
-                       FOC.pid_velocity.integral);
+                       FOC.pid_velocity.integral,
+                       FOC.Ia,
+                       FOC.Ib,
+                       FOC.Ic
+                );
             }
         }
     }
