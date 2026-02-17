@@ -1,3 +1,9 @@
+## [1.1.3](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.2...v1.1.3) (2026-02-14)
+
+### Refactoring
+
+* **control:** update encoder processing and velocity loop ([81dbc47](https://github.com/linglitel/ZeroForm_FOC/commit/81dbc47c61843f6733e1c98a74101f618353a9fd))
+
 ## [1.1.2](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.1...v1.1.2) (2026-02-13)
 
 ### Bug Fixes
