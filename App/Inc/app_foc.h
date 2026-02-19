@@ -84,6 +84,8 @@ typedef struct {
     float velocity_target; /**< 速度目标值 (rad/s) */
     float position_target; /**< 位置目标值 (rad) */
 
+    float logical_zero_offset; /**< 逻辑零点偏移 (rad)，逻辑位置 = 物理位置 - offset */
+
     /* 前馈控制参数 */
     float velocity_ff; /**< 速度前馈值 (rad/s) */
     float current_ff; /**< 电流前馈值 (A) */

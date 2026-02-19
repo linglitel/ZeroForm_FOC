@@ -92,6 +92,11 @@ void App_Init(void) {
         // 有有效校准数据，直接加载
         FOC.electrical_angle_offset = Flash_GetElectricalOffset();
         printf("Loaded calibration from Flash: offset = %.4f rad\r\n", FOC.electrical_angle_offset);
+        // 加载逻辑零点
+        if (Flash_IsZeroPointValid()) {
+            FOC.logical_zero_offset = Flash_GetLogicalZero();
+            printf("Loaded logical zero from Flash: offset = %.4f rad\r\n", FOC.logical_zero_offset);
+        }
         // 加载校准数据后，需要更新一次编码器以同步电角度
         Encoder_Update();
     } else {
@@ -114,7 +119,7 @@ void App_Init(void) {
     PID_Init(&FOC.pid_iq, 2.5f, 0.45f, 0.0f, 1.0f / 10000.0f, 16.0f, 6.0f);
     PID_Init(&FOC.pid_velocity, 0.2f, 0.05f, 0.0f, 1.0f / 1000.0f, 10.0f, 50.0f);
     // 写不动，真的写不动
-    PID_Init(&FOC.pid_position, 5.0f, 0.0f, 0.1f, 1.0f / 1000.0f, 50.0f, 20.0f);
+    PID_Init(&FOC.pid_position, 5.0f, 0.05f, 0.0f, 1.0f / 1000.0f, 50.0f, 20.0f);
     FOC.mode = IDLE;
     Encoder_Update();
     FOC_SetPhaseVoltage(0, 0, FOC.electrical_angle);

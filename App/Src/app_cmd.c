@@ -162,9 +162,11 @@ static void CMD_ParseAndExecute(char *cmd_str) {
         float angle_rad = CMD_ParseAngle(param);
 
         if (pos_type == 'A') {
-            FOC.position_target = angle_rad;
+            // 用户输入逻辑位置，转换为物理位置
+            FOC.position_target = angle_rad + FOC.logical_zero_offset;
             snprintf(response, sizeof(response), "OK: Absolute Position = %.2f deg\r\n", RAD_TO_DEG(angle_rad));
         } else if (pos_type == 'R') {
+            // 相对位置不受逻辑零点影响
             FOC.position_target = FOC.mechanical_angle * (float) FOC.direction + angle_rad;
             snprintf(response, sizeof(response), "OK: Relative Position += %.2f deg\r\n", RAD_TO_DEG(angle_rad));
         } else {
@@ -201,11 +203,47 @@ static void CMD_ParseAndExecute(char *cmd_str) {
             default: mode_str = "Unknown";
                 break;
         }
+        float physical_pos = FOC.mechanical_angle * (float) FOC.direction;
+        float logical_pos = physical_pos - FOC.logical_zero_offset;
         snprintf(response, sizeof(response),
                  "Mode: %s\r\nAngle: %.2f deg\r\nVelocity: %.2f rad/s\r\nIq: %.3f A\r\n",
-                 mode_str, RAD_TO_DEG(FOC.mechanical_angle*FOC.direction),
+                 mode_str, RAD_TO_DEG(logical_pos),
                  FOC.mechanical_velocity, FOC.Iq);
         CMD_SendResponse(response);
+        return;
+    }
+
+    // ZERO 命令 - 设置/查询/清除/保存逻辑零点
+    if (strncmp(cmd_str, "ZERO", 4) == 0) {
+        char *param = cmd_str + 4;
+        while (*param == ' ') param++;
+
+        if (*param == '\0') {
+            // ZERO - 将当前位置设为逻辑零点
+            FOC.logical_zero_offset = FOC.mechanical_angle * (float) FOC.direction;
+            snprintf(response, sizeof(response), "OK: Zero set at %.2f deg (physical)\r\n",
+                     RAD_TO_DEG(FOC.logical_zero_offset));
+            CMD_SendResponse(response);
+        } else if (*param == '?') {
+            // ZERO ? - 查询当前逻辑零点
+            snprintf(response, sizeof(response), "Zero offset: %.4f rad (%.2f deg)\r\n",
+                     FOC.logical_zero_offset, RAD_TO_DEG(FOC.logical_zero_offset));
+            CMD_SendResponse(response);
+        } else if (strncmp(param, "CLEAR", 5) == 0) {
+            // ZERO CLEAR - 清除逻辑零点
+            FOC.logical_zero_offset = 0.0f;
+            CMD_SendResponse("OK: Zero cleared\r\n");
+        } else if (strncmp(param, "SAVE", 4) == 0) {
+            // ZERO SAVE - 保存逻辑零点到Flash
+            if (Flash_SaveLogicalZero(FOC.logical_zero_offset) == HAL_OK) {
+                snprintf(response, sizeof(response), "OK: Zero saved (%.4f rad)\r\n", FOC.logical_zero_offset);
+            } else {
+                snprintf(response, sizeof(response), "ERR: Zero save failed\r\n");
+            }
+            CMD_SendResponse(response);
+        } else {
+            CMD_SendResponse("ERR: Use ZERO / ZERO ? / ZERO CLEAR / ZERO SAVE\r\n");
+        }
         return;
     }
 
@@ -276,7 +314,6 @@ static void CMD_ParseAndExecute(char *cmd_str) {
 
     // STREAM 命令 - 开启/关闭数据流输出
     // 格式: STREAM ON 或 STREAM OFF
-    // 输出格式(CSV): time,vel_target,vel_actual,vel_error,iq_target,iq_actual,vq,integral
     if (strncmp(cmd_str, "STREAM", 6) == 0) {
         char *param = cmd_str + 6;
         while (*param == ' ') param++;
@@ -345,13 +382,15 @@ static void CMD_ParseAndExecute(char *cmd_str) {
     // HELP 命令
     if (strncmp(cmd_str, "HELP", 4) == 0) {
         CMD_SendResponse("Commands:\r\n");
-        CMD_SendResponse("  MODE V/P/I  - Set mode\r\n");
+        CMD_SendResponse("  MODE V/P/C/I  - Set mode\r\n");
         CMD_SendResponse("  VEL <rad/s> - Set velocity\r\n");
         CMD_SendResponse("  POS A/R <deg> - Set position\r\n");
         CMD_SendResponse("  STATUS - Show status\r\n");
         CMD_SendResponse("  DEBUG - Show debug info\r\n");
         CMD_SendResponse("  STREAM ON/OFF - Data stream\r\n");
         CMD_SendResponse("  PID V/I <Kp> <Ki> <Kd> - Set PID\r\n");
+        CMD_SendResponse("  ZERO - Set current pos as zero\r\n");
+        CMD_SendResponse("  ZERO ?/CLEAR/SAVE - Query/Clear/Save\r\n");
         CMD_SendResponse("  STOP - Stop motor\r\n");
         CMD_SendResponse("  CALIB [V] - Calibrate encoder\r\n");
         return;

@@ -27,8 +27,10 @@
 typedef struct {
     uint32_t magic;                     // 魔数校验
     float electrical_angle_offset;      // 电零角偏移
+    float logical_zero_offset;          // 逻辑零点偏移
     uint8_t calibration_valid;          // 校准有效标志
-    uint8_t reserved[3];                // 对齐填充
+    uint8_t zero_point_valid;           // 逻辑零点有效标志
+    uint8_t reserved[2];               // 对齐填充
 } Flash_Data_t;
 
 //==============================================================================
@@ -59,6 +61,25 @@ float Flash_GetElectricalOffset(void);
  * @return HAL_StatusTypeDef
  */
 HAL_StatusTypeDef Flash_SaveElectricalOffset(float offset);
+
+/**
+ * @brief 检查是否有有效的逻辑零点
+ * @return true: 有效, false: 无效
+ */
+bool Flash_IsZeroPointValid(void);
+
+/**
+ * @brief 获取逻辑零点偏移
+ * @return 逻辑零点偏移值 (rad)
+ */
+float Flash_GetLogicalZero(void);
+
+/**
+ * @brief 保存逻辑零点偏移到Flash
+ * @param offset 逻辑零点偏移值 (rad)
+ * @return HAL_StatusTypeDef
+ */
+HAL_StatusTypeDef Flash_SaveLogicalZero(float offset);
 
 /**
  * @brief 擦除Flash存储区

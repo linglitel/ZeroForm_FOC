@@ -117,7 +117,7 @@ HAL_StatusTypeDef CAN_SendHeartbeat(void) {
     heartbeat.status_flags = CAN_GetStatusFlags();
     heartbeat.error_code = CAN_Status.error_code;
     heartbeat.reserved = 0;
-    heartbeat.position = FOC.mechanical_angle * (float) FOC.direction;
+    heartbeat.position = FOC.mechanical_angle * (float) FOC.direction - FOC.logical_zero_offset;
     heartbeat.velocity = FOC.mechanical_velocity;
     heartbeat.iq_current = FOC.Iq;
     heartbeat.id_current = FOC.Id;
@@ -150,7 +150,7 @@ HAL_StatusTypeDef CAN_SendStatusResponse(uint8_t request_type) {
             status.status_flags = CAN_GetStatusFlags();
             status.error_code = CAN_Status.error_code;
             status.reserved = 0;
-            status.position = FOC.mechanical_angle * (float) FOC.direction;
+            status.position = FOC.mechanical_angle * (float) FOC.direction - FOC.logical_zero_offset;
             status.velocity = FOC.mechanical_velocity;
             status.iq_current = FOC.Iq;
             status.id_current = FOC.Id;
@@ -373,7 +373,8 @@ static void CAN_HandleSetTarget(uint8_t *data, uint32_t dlc) {
                 CAN_SendAck(CAN_CMD_SET_TARGET, CAN_ERR_WRONG_MODE, FOC.mode, 0);
                 return;
             }
-            FOC.position_target = target_data->target_value;
+            // 用户输入逻辑位置，转换为物理位置
+            FOC.position_target = target_data->target_value + FOC.logical_zero_offset;
             break;
         case CAN_TARGET_POSITION_REL:
             if (FOC.mode != Position) {
@@ -468,6 +469,29 @@ static void CAN_HandleConfig(uint8_t *data, uint32_t dlc) {
                 CAN_Status.status_flags |= CAN_STATUS_FLAG_CALIBRATED;
             } else {
                 result = CAN_ERR_EXEC_FAIL; // Flash写入失败
+            }
+            break;
+        }
+        case CAN_CONFIG_SET_ZERO: {
+            // value_int: 0=设当前位置为零点, 1=清除零点, 2=保存到Flash, 3=直接设置offset值
+            switch (config->value_int) {
+                case 0:
+                    FOC.logical_zero_offset = FOC.mechanical_angle * (float) FOC.direction;
+                    break;
+                case 1:
+                    FOC.logical_zero_offset = 0.0f;
+                    break;
+                case 2:
+                    if (Flash_SaveLogicalZero(FOC.logical_zero_offset) != HAL_OK) {
+                        result = CAN_ERR_EXEC_FAIL;
+                    }
+                    break;
+                case 3:
+                    FOC.logical_zero_offset = config->value_float;
+                    break;
+                default:
+                    result = CAN_ERR_INVALID_PARAM;
+                    break;
             }
             break;
         }
