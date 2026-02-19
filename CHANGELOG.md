@@ -1,3 +1,10 @@
+## [1.2.0](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.3...v1.2.0) (2026-02-19)
+
+### Features
+
+* add logical zero point for position control ([cfe8e75](https://github.com/linglitel/ZeroForm_FOC/commit/cfe8e758be35d548bb9999b6a0a10bd7e1428039))
+* **control:** use measured Vbus and add current mode commands ([53dfd6e](https://github.com/linglitel/ZeroForm_FOC/commit/53dfd6e08d1ed22fa383cfe08f17a7847fe57490))
+
 ## [1.1.3](https://github.com/linglitel/ZeroForm_FOC/compare/v1.1.2...v1.1.3) (2026-02-14)
 
 ### Refactoring
